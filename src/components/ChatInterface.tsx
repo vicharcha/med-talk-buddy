@@ -1,36 +1,9 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send } from 'lucide-react';
 import ChatMessage, { ChatMessageProps } from './ChatMessage';
-
-// Mock bot responses based on user input
-const getBotResponse = (message: string): string => {
-  const lowercaseMessage = message.toLowerCase();
-  
-  if (lowercaseMessage.includes('hello') || lowercaseMessage.includes('hi')) {
-    return "Hello! I'm your healthcare assistant. How can I help you today?";
-  }
-  
-  if (lowercaseMessage.includes('headache') || lowercaseMessage.includes('head pain')) {
-    return "I understand you're experiencing headaches. This could be due to various factors like stress, dehydration, or eye strain. Try resting in a dark, quiet room, stay hydrated, and consider over-the-counter pain relievers if necessary. If headaches persist or are severe, please consult a healthcare professional.";
-  }
-  
-  if (lowercaseMessage.includes('fever') || lowercaseMessage.includes('temperature')) {
-    return "I see you're concerned about fever. For adults, a fever is typically considered a temperature above 100.4°F (38°C). Rest, stay hydrated, and take acetaminophen or ibuprofen to reduce fever. Seek medical attention if your fever is very high, lasts more than three days, or is accompanied by severe symptoms.";
-  }
-  
-  if (lowercaseMessage.includes('cold') || lowercaseMessage.includes('flu') || lowercaseMessage.includes('cough')) {
-    return "For cold or flu symptoms, rest, stay hydrated, and consider over-the-counter medications for symptom relief. Honey can help with cough (for adults and children over 1 year). See a doctor if symptoms are severe or persist beyond a week. Remember, this is general information and not a substitute for professional medical advice.";
-  }
-
-  if (lowercaseMessage.includes('thank')) {
-    return "You're welcome! If you have any other health-related questions, feel free to ask. Remember, I'm here to provide general information, but always consult a healthcare professional for personalized medical advice.";
-  }
-
-  return "I understand you're concerned about your health. Could you provide more specific symptoms so I can offer better guidance? Remember, I'm here to provide general information, but for serious concerns, please consult a healthcare professional.";
-};
+import { auth } from '@/lib/firebase';
 
 // Format current time for message timestamps
 const getCurrentTime = (): string => {
@@ -42,7 +15,7 @@ const ChatInterface: React.FC = () => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessageProps[]>([
     {
-      message: "Hello! I'm your healthcare assistant. How can I help you today?",
+      message: "Hello! I'm MedTalkBuddy, your healthcare assistant. How can I help you today?",
       type: 'bot',
       timestamp: getCurrentTime()
     }
@@ -50,15 +23,57 @@ const ChatInterface: React.FC = () => {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Fetch chat history on component mount
+  useEffect(() => {
+    const fetchChatHistory = async () => {
+      try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+
+        const token = await currentUser.getIdToken();
+        const response = await fetch('http://localhost:8000/api/v1/chat/messages', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          interface BackendMessage {
+            id: string;
+            user_id: string;
+            message: string;
+            is_bot: boolean;
+            timestamp: string;
+          }
+          
+          const formattedMessages: ChatMessageProps[] = data.map((msg: BackendMessage) => ({
+            message: msg.message,
+            type: msg.is_bot ? 'bot' : 'user',
+            timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }));
+
+          if (formattedMessages.length > 0) {
+            setMessages(formattedMessages);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching chat history:', error);
+      }
+    };
+
+    fetchChatHistory();
+  }, []);
+
   // Auto scroll to bottom when messages update
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!input.trim()) return;
 
-    // Add user message
+    // Add user message to UI immediately
     const userMessage: ChatMessageProps = {
       message: input,
       type: 'user',
@@ -68,20 +83,57 @@ const ChatInterface: React.FC = () => {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     
-    // Simulate bot typing
+    // Show typing indicator
     setIsTyping(true);
     
-    // Delay bot response to simulate thinking/typing
-    setTimeout(() => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('User not authenticated');
+      }
+
+      const token = await currentUser.getIdToken();
+      const response = await fetch('http://localhost:8000/api/v1/chat/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ message: input })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const botMessage: ChatMessageProps = {
+          message: data.bot_message.message,
+          type: 'bot',
+          timestamp: new Date(data.bot_message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        
+        setMessages(prev => [...prev, botMessage]);
+      } else {
+        // Handle error response
+        const botMessage: ChatMessageProps = {
+          message: "I'm sorry, I'm having trouble processing your request right now. Please try again later.",
+          type: 'bot',
+          timestamp: getCurrentTime()
+        };
+        
+        setMessages(prev => [...prev, botMessage]);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      // Show error message to user
       const botMessage: ChatMessageProps = {
-        message: getBotResponse(input),
+        message: "I'm sorry, there was an error connecting to the server. Please check your connection and try again.",
         type: 'bot',
         timestamp: getCurrentTime()
       };
       
       setMessages(prev => [...prev, botMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -93,7 +145,7 @@ const ChatInterface: React.FC = () => {
   return (
     <div className="flex flex-col h-[70vh] bg-white rounded-lg shadow-md border">
       <div className="p-4 bg-medical-primary text-white rounded-t-lg">
-        <h2 className="text-xl font-semibold">Healthcare Assistant</h2>
+        <h2 className="text-xl font-semibold">MedTalkBuddy</h2>
         <p className="text-sm text-medical-light">Ask me about your symptoms or health concerns</p>
       </div>
       
@@ -114,7 +166,7 @@ const ChatInterface: React.FC = () => {
               <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse delay-100"></div>
               <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse delay-200"></div>
             </div>
-            <span className="ml-2">AI is typing...</span>
+            <span className="ml-2">MedTalkBuddy is typing...</span>
           </div>
         )}
         

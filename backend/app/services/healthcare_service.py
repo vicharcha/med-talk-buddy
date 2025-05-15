@@ -2,6 +2,7 @@ from typing import Dict, List, Optional, Any
 from app.core.firebase_admin import db
 import uuid
 from datetime import datetime
+from app.services.ml_service import get_ml_response
 
 class HealthcareService:
     """
@@ -18,9 +19,6 @@ class HealthcareService:
         
         This method analyzes the user's message for healthcare-related keywords
         and provides relevant information. The conversation is stored in Firestore.
-        
-        In a production system, this would integrate with a healthcare AI model
-        or external API for generating responses. This is a simplified placeholder.
         
         Args:
             user_id (str): The unique identifier of the user sending the query
@@ -39,36 +37,7 @@ class HealthcareService:
         message_id = str(uuid.uuid4())
         timestamp = datetime.now()
         
-        # This is where you would call an external AI service
-        # For now, we'll use a simple rule-based response system
-        
-        # Simple keyword-based response generation
-        response = ""
-        if any(word in message.lower() for word in ["hello", "hi", "hey", "greetings"]):
-            response = "Hello! How can I assist you with your healthcare needs today?"
-        elif any(word in message.lower() for word in ["covid", "coronavirus", "pandemic"]):
-            response = "COVID-19 is caused by the SARS-CoV-2 virus. Common symptoms include fever, cough, and fatigue. " \
-                       "If you're experiencing symptoms, please consult a healthcare professional."
-        elif any(word in message.lower() for word in ["headache", "head", "pain", "ache"]):
-            response = "Headaches can be caused by various factors including stress, dehydration, lack of sleep, " \
-                       "or underlying medical conditions. For persistent or severe headaches, please consult a doctor."
-        elif any(word in message.lower() for word in ["diet", "nutrition", "food", "eating"]):
-            response = "A balanced diet rich in fruits, vegetables, lean proteins, and whole grains is essential for good health. " \
-                       "It's recommended to limit processed foods and sugary drinks."
-        elif any(word in message.lower() for word in ["exercise", "workout", "physical activity"]):
-            response = "Regular physical activity is crucial for maintaining good health. Aim for at least 150 minutes " \
-                       "of moderate-intensity exercise per week, along with muscle-strengthening activities."
-        elif any(word in message.lower() for word in ["sleep", "insomnia", "rest"]):
-            response = "Adults should aim for 7-9 hours of quality sleep per night. Consistent sleep and wake times, " \
-                       "a comfortable environment, and limiting screen time before bed can help improve sleep quality."
-        elif any(word in message.lower() for word in ["stress", "anxiety", "mental health", "depression"]):
-            response = "Mental health is as important as physical health. Regular exercise, adequate sleep, mindfulness " \
-                       "practices, and seeking professional help when needed are all important for mental wellbeing."
-        else:
-            response = "I understand you're asking about health matters. For specific medical advice, it's best to " \
-                       "consult with a qualified healthcare professional. Is there anything else I can help with?"
-        
-        # Store the conversation in Firestore
+        # Store the user message in Firestore
         user_message = {
             "id": message_id,
             "user_id": user_id,
@@ -78,6 +47,9 @@ class HealthcareService:
         }
         
         db.collection("chat_messages").document(message_id).set(user_message)
+        
+        # Get response from ML service
+        response = await get_ml_response(message)
         
         # Create and store the bot response
         bot_message_id = str(uuid.uuid4())

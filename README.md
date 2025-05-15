@@ -1,73 +1,140 @@
-# Welcome to your Lovable project
+# MedTalkBuddy - Your Healthcare Companion
 
-## Project info
+MedTalkBuddy is an AI-powered healthcare assistant that provides personalized health information, recommendations, and guidance. It combines a React frontend with a FastAPI backend and ML-based responses to create a comprehensive healthcare chatbot experience.
 
-**URL**: https://lovable.dev/projects/e38280cd-6026-47f3-811a-b9c32b21a70c
+## Features
 
-## How can I edit this code?
+- **Interactive Chat Interface**: Talk to the AI assistant about your health concerns
+- **Personalized Health Recommendations**: Get recommendations based on your health data
+- **BMI Calculator**: Calculate and track your BMI
+- **User Authentication**: Secure user accounts with Firebase
+- **Mobile-Friendly Design**: Responsive UI that works on all devices
 
-There are several ways of editing your application.
+## Project Structure
 
-**Use Lovable**
+The project consists of two main parts:
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/e38280cd-6026-47f3-811a-b9c32b21a70c) and start prompting.
+1. **Frontend** (React, TypeScript, Tailwind CSS)
+   - Modern UI components using shadcn-ui
+   - Firebase authentication integration
+   - Responsive design for all devices
 
-Changes made via Lovable will be committed automatically to this repo.
+2. **Backend** (Python, FastAPI)
+   - RESTful API endpoints for chat and health data
+   - ML-based response generation
+   - Firebase integration for data storage and auth
+   - Health recommendation engine
 
-**Use your preferred IDE**
+## Getting Started
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Prerequisites
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- Node.js 16+ and npm/yarn/bun
+- Python 3.8+
+- Firebase account (optional for development)
 
-Follow these steps:
+### Quick Start
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+The easiest way to start the application is using the provided script:
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+```bash
+# Make the script executable if needed
+chmod +x start_app.sh
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Run the application
+./start_app.sh
+```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+This will:
+1. Set up the Python environment for the backend
+2. Install all dependencies
+3. Train the ML model if needed
+4. Start the backend server
+5. Start the frontend development server
+
+### Manual Setup
+
+#### Backend Setup
+
+```bash
+# Navigate to the backend directory
+cd backend
+
+# Create and activate a virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Setup Firebase credentials (you can choose development mode)
+./setup_firebase_credentials.sh
+
+# Train the ML model
+python train_model.py
+
+# Start the backend server
+python main.py
+```
+
+#### Frontend Setup
+
+```bash
+# Install dependencies
+npm install
+
+# Start the development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Development
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Backend API
 
-**Use GitHub Codespaces**
+The backend provides the following API endpoints:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- `/api/v1/chat/messages` - Send and receive chat messages
+- `/api/v1/chat/recommendations` - Get personalized health recommendations
+- `/api/v1/bmi` - Calculate and store BMI data
+- `/api/v1/users` - User management
 
-## What technologies are used for this project?
+### Frontend Routes
 
-This project is built with:
+- `/` - Home page
+- `/chat` - Chat with MedTalkBuddy
+- `/bmi` - BMI Calculator
+- `/login` - User login
+- `/register` - User registration
+- `/profile` - User profile
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Technology Stack
 
-## How can I deploy this project?
+- **Frontend**:
+  - React
+  - TypeScript
+  - Tailwind CSS
+  - shadcn-ui components
+  - Firebase Auth
+  - Vite
 
-Simply open [Lovable](https://lovable.dev/projects/e38280cd-6026-47f3-811a-b9c32b21a70c) and click on Share -> Publish.
+- **Backend**:
+  - Python
+  - FastAPI
+  - Firebase Admin SDK
+  - TensorFlow/scikit-learn
+  - NLTK
 
-## Can I connect a custom domain to my Lovable project?
+## Deployment
 
-Yes, you can!
+You can deploy the application to any platform that supports:
+- Node.js for the frontend
+- Python for the backend
+- Or use Docker for containerized deployment
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## License
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+This project was created using Lovable's tools and services.
+
+## Acknowledgments
+
+Built with the help of Lovable and GitHub Copilot.
