@@ -1,14 +1,30 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Heart } from 'lucide-react';
+import { Heart, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/AuthContext';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
 
 const Header: React.FC = () => {
   const location = useLocation();
+  const { currentUser, logout } = useAuth();
   
   const isActive = (path: string): boolean => {
     return location.pathname === path;
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
   };
 
   return (
@@ -47,9 +63,28 @@ const Header: React.FC = () => {
         </nav>
 
         <div className="mt-4 sm:mt-0">
-          <Button className="bg-medical-primary hover:bg-medical-secondary">
-            Log In
-          </Button>
+          {currentUser ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-2 hover:bg-gray-100">
+                  <User className="h-4 w-4" />
+                  {currentUser.email?.split('@')[0] || 'User'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Logout</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link to="/login">
+              <Button className="bg-medical-primary hover:bg-medical-secondary">
+                Log In
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
     </header>
