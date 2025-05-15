@@ -11,12 +11,8 @@ def initialize_firebase():
     except Exception as e:
         print(f"Failed to initialize Firebase: {str(e)}")
         # If we're in development mode, use mock Firebase
-        if os.getenv("ENVIRONMENT") == "development":
-            from app.core.mock_firebase import initialize_mock_firebase
-            initialize_mock_firebase()
-        else:
-            raise e
-
+        
+        
 def verify_firebase_token(token: str):
     """Verify Firebase ID token"""
     try:

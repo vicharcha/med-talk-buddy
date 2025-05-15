@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, Query
-from app.models.models import ChatRequest, ChatResponse
+from fastapi import APIRouter, HTTPException, Body
+from app.models.models import ChatRequest, ChatResponse, ChatMessage
 from app.services.chat.medical_chat import MedicalChatService
 from typing import List, Optional
 from datetime import datetime
@@ -13,37 +13,40 @@ router = APIRouter(
 chat_service = MedicalChatService()
 
 @router.post(
-    "/message",
+    "/send",
     response_model=ChatResponse,
     summary="Send a message to MedTalkBuddy",
     description="""
     Send a message to the AI medical assistant and get a response.
     
-    The assistant can help with:
-    * Medical information and explanations
-    * General health questions
-    * Understanding medical terms
-    * Basic health recommendations
+    The assistant has knowledge in:
+    - Basic Medical Science
+    - Clinical Medicine
+    - Biology
+    - Clinical Knowledge
+    - Medical Genetics
+    - Nutrition
+    - Human Aging
+    - Human Sexuality
     
-    Note: This is an AI assistant and should not replace professional medical advice.
-    """,
-    response_description="AI assistant's response with medical information"
+    Example messages:
+    - "What are the symptoms of diabetes?"
+    - "How does the human immune system work?"
+    - "What are common treatments for hypertension?"
+    """
 )
 async def send_message(
-    request: ChatRequest
-) -> ChatResponse:
+    request: ChatRequest = Body(
+        ...,
+        example={
+            "message": "What are the symptoms of diabetes?",
+            "conversation_id": None,
+            "context": None
+        }
+    )
+):
     """
     Send a message to MedTalkBuddy and get an AI-powered medical response.
-
-    Parameters:
-    - **message**: Your medical question or concern
-    - **conversation_id**: Optional ID to maintain conversation context
-    - **context**: Optional additional context for the conversation
-
-    Returns:
-    - AI assistant's response with medical information
-    - Conversation ID for follow-up messages
-    - Additional information about the response
     """
     try:
         response = await chat_service.generate_response(request)
@@ -57,10 +60,9 @@ async def send_message(
 @router.get(
     "/health",
     summary="Check chat service health",
-    description="Check if the medical chat service is operational",
-    response_description="Health status of the chat service"
+    description="Check if the medical chat service is operational"
 )
-async def health_check():
+async def chat_health_check():
     """Check if the chat service is operational"""
     try:
         health_status = {
