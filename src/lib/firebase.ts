@@ -4,7 +4,7 @@ import { getAuth } from "firebase/auth";
 
 // Your Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyDH687LJ8uxLzpE4TYWq89OsCLTH4HDw", // Replace with your actual Firebase API key
+  apiKey: "AIzaSyDGUzmGh36XlyEIu8H0gzBQZQkD08VDOgE", // Updated Firebase API key
   authDomain: "healthcare-77135.firebaseapp.com",
   projectId: "healthcare-77135",
   storageBucket: "healthcare-77135.appspot.com",
