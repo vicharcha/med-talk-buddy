@@ -52,19 +52,35 @@ fi
 
 # Create .env file if it doesn't exist
 if [ ! -f .env ]; then
-    echo -e "${YELLOW}Creating .env file from template...${NC}"
-    cp .env.example .env
-    echo -e "${GREEN}Created .env file. Please edit it with your Firebase configuration.${NC}"
+    echo -e "${YELLOW}Creating .env file...${NC}"
+    cat > .env << EOF
+# Firebase configuration
+FIREBASE_PROJECT_ID=healthcare-77135
+FIREBASE_STORAGE_BUCKET=healthcare-77135.appspot.com
+FIREBASE_API_KEY=AIzaSyDH687LJ8huxt_zpE4TYWqB9OsCLTH4HDw
+FIREBASE_AUTH_DOMAIN=healthcare-77135.firebaseapp.com
+FIREBASE_MESSAGING_SENDER_ID=867221601164
+FIREBASE_APP_ID=1:867221601164:web:e094a34d9f052d58d2f41c
+
+# Backend configuration
+API_PREFIX=/api/v1
+DEBUG=False
+SECRET_KEY=your-super-secret-key-for-production
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# Google Cloud credentials path
+GOOGLE_APPLICATION_CREDENTIALS=healthcare-77135-firebase-adminsdk-fbsvc-0e40ca9a7b.json
+EOF
+    echo -e "${GREEN}Created .env file with Firebase configuration.${NC}"
 else
     echo -e "${YELLOW}.env file already exists. Skipping...${NC}"
 fi
 
-# Ask if user wants to set up Firebase credentials
-echo -e "\n${YELLOW}Do you want to set up Firebase service account credentials? (y/n)${NC}"
-read -r setup_firebase
-if [[ "$setup_firebase" == "y" || "$setup_firebase" == "Y" ]]; then
-    ./setup_firebase_credentials.sh
-fi
+# Set up Firebase credentials
+echo -e "\n${YELLOW}Setting up Firebase credentials...${NC}"
+export GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/healthcare-77135-firebase-adminsdk-fbsvc-0e40ca9a7b.json
+echo -e "${GREEN}Firebase credentials set to: $GOOGLE_APPLICATION_CREDENTIALS${NC}"
 
 echo -e "\n${GREEN}Initialization complete!${NC}"
 echo -e "To start the backend server, run:"
