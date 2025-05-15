@@ -43,23 +43,27 @@ const Header: React.FC = () => {
             Home
           </Link>
           <Link 
-            to="/chat" 
-            className={`${isActive('/chat') ? 'text-medical-primary font-medium' : 'text-gray-600 hover:text-medical-primary'}`}
-          >
-            Chat
-          </Link>
-          <Link 
-            to="/bmi" 
-            className={`${isActive('/bmi') ? 'text-medical-primary font-medium' : 'text-gray-600 hover:text-medical-primary'}`}
-          >
-            BMI
-          </Link>
-          <Link 
             to="/team" 
             className={`${isActive('/team') ? 'text-medical-primary font-medium' : 'text-gray-600 hover:text-medical-primary'}`}
           >
             Team
           </Link>
+          {currentUser && (
+            <>
+              <Link 
+                to="/chat" 
+                className={`${isActive('/chat') ? 'text-medical-primary font-medium' : 'text-gray-600 hover:text-medical-primary'}`}
+              >
+                Chat
+              </Link>
+              <Link 
+                to="/bmi" 
+                className={`${isActive('/bmi') ? 'text-medical-primary font-medium' : 'text-gray-600 hover:text-medical-primary'}`}
+              >
+                BMI
+              </Link>
+            </>
+          )}
         </nav>
 
         <div className="mt-4 sm:mt-0">
@@ -72,6 +76,12 @@ const Header: React.FC = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem className="cursor-pointer" asChild>
+                  <Link to="/profile">
+                    <User className="mr-2 h-4 w-4" />
+                    <span>My Profile</span>
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Logout</span>

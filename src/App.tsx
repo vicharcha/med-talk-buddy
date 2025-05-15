@@ -12,6 +12,7 @@ import Team from "./pages/Team";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
+import UserProfile from "./pages/UserProfile";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/" element={<Index />} />
+            <Route path="/team" element={<Team />} />
             <Route 
               path="/chat" 
               element={
@@ -45,10 +47,10 @@ const App = () => (
               } 
             />
             <Route 
-              path="/team" 
+              path="/profile" 
               element={
                 <ProtectedRoute>
-                  <Team />
+                  <UserProfile />
                 </ProtectedRoute>
               } 
             />
