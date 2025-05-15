@@ -1,1 +1,0 @@
-# Vision fine-tuning script
