@@ -131,6 +131,11 @@ You can deploy the application to any platform that supports:
 - Python for the backend
 - Or use Docker for containerized deployment
 
+
+# Demo
+
+Check out the live demo at [MedTalkBuddy Demo](/home/kasinadhsarma/med-talk-buddy/Screencast%20from%202025-05-17%2000-02-57.webm).
+
 ## License
 
 This project was created using Lovable's tools and services.
