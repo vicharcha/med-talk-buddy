@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -8,6 +7,8 @@ import uuid
 import logging
 import uvicorn
 from model_inference import MedicalModelInference
+from train_model import MedicalModelTrainer
+import pickle
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -86,6 +87,59 @@ async def get_conversation_history(conversation_id: str):
     
     return {"conversation_id": conversation_id, "messages": conversations[conversation_id]}
 
+def main():
+    # List of datasets to train on
+    datasets = [
+        "MMMU/Biology",
+        "MMMU/Basic_Medical_Science",
+        "MMMU/Chemistry",
+        "MMMU/Clinical_Medicine",
+        "cais/mmlu/college_medicine",
+        "cais/mmlu/clinical_knowledge",
+        "cais/mmlu/nutrition",
+        "cais/mmlu/philosophy",
+        "cais/mmlu/human_aging",
+        "cais/mmlu/human_sexuality",
+        "cais/mmlu/medical_genetics"
+    ]
+
+    # Initialize trainer with increased vocabulary size and sequence length
+    trainer = MedicalModelTrainer(max_words=20000, max_sequence_length=500)
+
+    logger.info("Preparing data...")
+    try:
+        # Prepare the data from multiple datasets
+        X_train, X_val, y_train, y_val, num_classes, unique_answers = trainer.prepare_data(datasets)
+        
+        logger.info(f"Building model with {num_classes} output classes")
+        trainer.build_model(num_classes, embedding_dim=100)
+        
+        logger.info("Training model...")
+        history = trainer.train(
+            X_train, y_train, X_val, y_val,
+            epochs=10,  # Increased epochs for better learning
+            batch_size=32
+        )
+        
+        logger.info("Saving model...")
+        trainer.save_model("model/medical_model.pt")
+        
+        # Save answer mapping for inference
+        with open("model/answer_mapping.pickle", "wb") as f:
+            pickle.dump(unique_answers, f)
+        
+        logger.info("Model training completed successfully!")
+        
+        # Print final metrics
+        final_epoch = history[-1]
+        logger.info(f"Final training accuracy: {final_epoch['train']['accuracy']:.4f}")
+        logger.info(f"Final validation accuracy: {final_epoch['validation']['accuracy']:.4f}")
+        
+    except Exception as e:
+        logger.error(f"Error during model training: {e}")
+        raise
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
+    main()

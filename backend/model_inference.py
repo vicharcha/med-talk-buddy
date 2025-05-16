@@ -1,19 +1,21 @@
 
 import pickle
 import numpy as np
-import tensorflow as tf
-from tensorflow.keras.preprocessing.sequence import pad_sequences
+import torch
+import torch.nn as nn
+from train_model import MedicalModel  # Import the model architecture
 import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class MedicalModelInference:
-    def __init__(self, model_path="model/medical_model.h5", 
+    def __init__(self, model_path="model/medical_model.pt", 
                  tokenizer_path="model/tokenizer.pickle",
                  answer_mapping_path="model/answer_mapping.pickle",
                  max_sequence_length=500):
         self.max_sequence_length = max_sequence_length
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = None
         self.tokenizer = None
         self.answer_mapping = None
@@ -23,16 +25,26 @@ class MedicalModelInference:
         """Load the trained model, tokenizer, and answer mapping"""
         try:
             logger.info(f"Loading model from {model_path}")
-            self.model = tf.keras.models.load_model(model_path)
-            
-            logger.info(f"Loading tokenizer from {tokenizer_path}")
+            # First load tokenizer to get vocab size
             with open(tokenizer_path, 'rb') as handle:
                 self.tokenizer = pickle.load(handle)
             
-            logger.info(f"Loading answer mapping from {answer_mapping_path}")
+            # Load answer mapping to get num_classes
             with open(answer_mapping_path, 'rb') as handle:
                 self.answer_mapping = pickle.load(handle)
-                
+            
+            # Initialize model with same architecture
+            self.model = MedicalModel(
+                vocab_size=self.tokenizer.num_words,
+                embed_dim=100,
+                hidden_size=128,
+                num_classes=len(self.answer_mapping)
+            ).to(self.device)
+            
+            # Load trained weights
+            self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+            self.model.eval()  # Set to evaluation mode
+            
             logger.info("Model, tokenizer, and answer mapping loaded successfully")
         except Exception as e:
             logger.error(f"Error loading model resources: {e}")
@@ -43,10 +55,17 @@ class MedicalModelInference:
         # Convert query to sequence
         sequence = self.tokenizer.texts_to_sequences([query])
         
-        # Pad sequence to the required length
-        padded_sequence = pad_sequences(sequence, maxlen=self.max_sequence_length)
+        # Manual padding function
+        def pad_sequence(seq, maxlen):
+            if len(seq) > maxlen:
+                return seq[:maxlen]
+            return seq + [0] * (maxlen - len(seq))
         
-        return padded_sequence
+        # Pad sequence to the required length
+        padded_sequence = [pad_sequence(seq, self.max_sequence_length) for seq in sequence]
+        
+        # Convert to tensor
+        return torch.tensor(padded_sequence, dtype=torch.long, device=self.device)
     
     def get_response(self, query, top_k=3):
         """Generate a response to a medical query"""
@@ -59,7 +78,12 @@ class MedicalModelInference:
             processed_query = self.preprocess_query(query)
             
             # Get model predictions
-            predictions = self.model.predict(processed_query)
+            with torch.no_grad():
+                logits = self.model(processed_query, training=False)
+                probabilities = torch.softmax(logits, dim=-1)
+            
+            # Convert to numpy for easier handling
+            predictions = probabilities.cpu().numpy()
             
             # Get top k answer indices
             top_indices = np.argsort(predictions[0])[-top_k:][::-1]
