@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 # Start MedTalkBuddy Application (both frontend and backend)
@@ -30,15 +31,9 @@ source venv/bin/activate
 echo "Installing backend dependencies..."
 pip install -r requirements.txt
 
-# Check if the ML model exists, if not train it
-if [ ! -f "models/medical_model.h5" ]; then
-    echo "Training ML model..."
-    python train_model.py
-fi
-
 # Start the backend server
 echo "Starting FastAPI server..."
-python main.py &
+PYTHONPATH=$(pwd) python main.py &
 BACKEND_PID=$!
 echo "Backend server started with PID: $BACKEND_PID"
 
@@ -47,6 +42,7 @@ cd ..
 
 # Start the frontend in the foreground
 echo "Starting frontend..."
+npm install  # Install frontend dependencies
 npm run dev
 
 # When the frontend is stopped, also stop the backend

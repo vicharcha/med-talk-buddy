@@ -1,3 +1,4 @@
+
 from fastapi import APIRouter, HTTPException, Body
 from app.models.models import ChatRequest, ChatResponse, ChatMessage
 from app.services.chat.medical_chat import MedicalChatService
@@ -23,16 +24,14 @@ chat_service = MedicalChatService()
     - Basic Medical Science
     - Clinical Medicine
     - Biology
+    - Chemistry
     - Clinical Knowledge
+    - College Medicine
     - Medical Genetics
     - Nutrition
+    - Philosophy
     - Human Aging
     - Human Sexuality
-    
-    Example messages:
-    - "What are the symptoms of diabetes?"
-    - "How does the human immune system work?"
-    - "What are common treatments for hypertension?"
     """
 )
 async def send_message(

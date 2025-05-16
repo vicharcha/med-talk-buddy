@@ -1,11 +1,13 @@
+
 from pydantic_settings import BaseSettings
 import torch
+
 class ModelConfig(BaseSettings):
     MODEL_ID: str = "microsoft/phi-2"  # Using Phi-2 as it's currently available
     DEVICE: str = "cuda" if torch.cuda.is_available() else "cpu"
     MAX_LENGTH: int = 2048
     
-    # Dataset configurations
+    # Dataset configurations with all the specified datasets
     DATASETS = {
         "biology": "MMMU/MMMU/Biology",
         "basic_medical": "MMMU/MMMU/Basic_Medical_Science",

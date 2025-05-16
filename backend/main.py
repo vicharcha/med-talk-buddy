@@ -1,22 +1,28 @@
+
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+from app.api.api import api_router
+from app.models.models import HealthCheck
 from typing import Optional
-
-# Data Models
-class HealthCheck(BaseModel):
-    status: str
-    version: str
-    environment: Optional[str] = None
-
-class Echo(BaseModel):
-    message: str
 
 app = FastAPI(
     title="Med Talk Buddy API",
     description="Medical Assistant API",
     version="1.0.0"
 )
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # For production, replace with specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include API router
+app.include_router(api_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():
@@ -29,16 +35,6 @@ async def health_check():
         version="1.0.0",
         environment="development"
     )
-
-@app.post("/echo", response_model=Echo)
-async def echo(data: Echo):
-    """Echo back the received message"""
-    return data
-
-@app.get("/error-test")
-async def error_test():
-    """Test error handling"""
-    raise HTTPException(status_code=400, detail="Test error response")
 
 if __name__ == "__main__":
     uvicorn.run(

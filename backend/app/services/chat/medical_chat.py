@@ -1,17 +1,24 @@
+
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 import torch
 from typing import Dict, Any, Optional
 from app.models.models import ChatRequest, ChatResponse
 import datasets
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class MedicalChatService:
     def __init__(self):
         # Initialize model and tokenizer
         self.model_name = "microsoft/phi-2"  # Using Phi-2 as it's currently available
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        print(f"Using device: {self.device}")
+        logger.info(f"Using device: {self.device}")
         
         try:
+            logger.info(f"Loading model {self.model_name}...")
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
@@ -24,40 +31,50 @@ class MedicalChatService:
                 tokenizer=self.tokenizer,
                 device_map="auto"
             )
+            logger.info("Model loaded successfully")
             
             # Load medical context
             self._load_medical_context()
             
         except Exception as e:
-            print(f"Error initializing model: {str(e)}")
+            logger.error(f"Error initializing model: {str(e)}")
             self.chat = None
     
     def _load_medical_context(self):
         """Load and prepare medical datasets for context"""
         from app.config.model_config import model_config
         
+        logger.info("Loading medical datasets...")
         self.medical_datasets = {}
         for dataset_name, dataset_path in model_config.DATASETS.items():
             try:
                 # Split the dataset path into name and subset
                 if "/" in dataset_path:
-                    repo_name, *subset_parts = dataset_path.split("/")
-                    if len(subset_parts) > 1:
-                        dataset = datasets.load_dataset(
-                            f"{repo_name}/{subset_parts[0]}", 
-                            subset_parts[-1], 
-                            split="train"
-                        )
+                    parts = dataset_path.split("/")
+                    if len(parts) == 3:
+                        # Format like "MMMU/MMMU/Biology"
+                        repo_name = f"{parts[0]}/{parts[1]}"
+                        subset = parts[2]
+                        logger.info(f"Loading dataset {repo_name} with subset {subset}")
+                        dataset = datasets.load_dataset(repo_name, subset, split="train")
+                    elif len(parts) == 2:
+                        # Format like "cais/mmlu"
+                        repo_name = f"{parts[0]}/{parts[1]}"
+                        logger.info(f"Loading dataset {repo_name} without subset")
+                        dataset = datasets.load_dataset(repo_name, split="train")
                     else:
-                        dataset = datasets.load_dataset(repo_name, subset_parts[0], split="train")
+                        logger.error(f"Invalid dataset path format: {dataset_path}")
+                        continue
                 else:
                     dataset = datasets.load_dataset(dataset_path, split="train")
                     
                 self.medical_datasets[dataset_name] = dataset
-                print(f"Successfully loaded dataset: {dataset_name}")
+                logger.info(f"Successfully loaded dataset: {dataset_name}")
             except Exception as e:
-                print(f"Error loading dataset {dataset_name}: {str(e)}")
+                logger.error(f"Error loading dataset {dataset_name}: {str(e)}")
                 continue
+        
+        logger.info(f"Loaded {len(self.medical_datasets)} medical datasets successfully")
     
     def _create_prompt(self, user_input: str, context: str = "") -> str:
         """Create a prompt with medical context"""
@@ -95,12 +112,30 @@ class MedicalChatService:
         # Process each dataset
         for dataset_name, dataset in self.medical_datasets.items():
             try:
-                # Extract text from dataset (adjust based on actual dataset structure)
+                # Extract text from dataset (adjusting based on actual dataset structure)
+                corpus = []
+                
+                # Different datasets have different structures
                 if 'text' in dataset.features:
                     corpus = dataset['text']
-                elif 'question' in dataset.features:
-                    corpus = [f"{q} {a}" for q, a in zip(dataset['question'], dataset['answer'])]
+                elif 'question' in dataset.features and 'answer' in dataset.features:
+                    corpus = [f"Q: {q}\nA: {a}" for q, a in zip(dataset['question'], dataset['answer'])]
+                elif 'inputs' in dataset.features and 'targets' in dataset.features:
+                    corpus = [f"Input: {i}\nTarget: {t}" for i, t in zip(dataset['inputs'], dataset['targets'])]
                 else:
+                    # Try to extract all text fields
+                    text_fields = []
+                    for feature, value in dataset.features.items():
+                        if str(value.dtype) == 'string':
+                            text_fields.append(feature)
+                    
+                    if text_fields:
+                        for tf in text_fields:
+                            if tf in dataset:
+                                corpus.extend(dataset[tf])
+                
+                if not corpus:
+                    logger.warning(f"No suitable text found in dataset {dataset_name}")
                     continue
                 
                 # Create TF-IDF vectorizer
@@ -120,12 +155,12 @@ class MedicalChatService:
                         relevant_contexts.append(f"[{dataset_name}] {context}")
             
             except Exception as e:
-                print(f"Error processing dataset {dataset_name}: {str(e)}")
+                logger.error(f"Error processing dataset {dataset_name}: {str(e)}")
                 continue
         
         # Combine relevant contexts
         if relevant_contexts:
-            return "\n".join(relevant_contexts[:5])  # Limit to top 5 most relevant contexts
+            return "\n\n".join(relevant_contexts[:5])  # Limit to top 5 most relevant contexts
         return ""
     
     async def generate_response(self, request: ChatRequest) -> ChatResponse:
@@ -133,6 +168,8 @@ class MedicalChatService:
         try:
             if not self.chat:
                 raise Exception("Model not properly initialized")
+            
+            logger.info(f"Generating response for: {request.message}")
             
             # Get relevant context from datasets
             context = self._get_relevant_context(request.message)
@@ -153,7 +190,17 @@ class MedicalChatService:
             
             # Extract and clean response
             response_text = response[0]["generated_text"]
-            response_text = response_text.split("Assistant:")[-1].strip()
+            # Extract text after "Based on the medical context and my training, here is my response:"
+            response_parts = response_text.split("Based on the medical context and my training, here is my response:")
+            if len(response_parts) > 1:
+                response_text = response_parts[1].strip()
+            else:
+                # Fallback to extracting after the query
+                query_marker = f"User Query: {request.message}"
+                if query_marker in response_text:
+                    response_text = response_text.split(query_marker)[1].strip()
+            
+            logger.info("Response generated successfully")
             
             return ChatResponse(
                 message=response_text,
@@ -163,7 +210,7 @@ class MedicalChatService:
             
         except Exception as e:
             error_msg = f"Error generating response: {str(e)}"
-            print(error_msg)
+            logger.error(error_msg)
             return ChatResponse(
                 message="I apologize, but I'm having trouble generating a response. Please try again.",
                 conversation_id=request.conversation_id or "error_session",

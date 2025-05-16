@@ -1,7 +1,9 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 import ChatMessage, { ChatMessageProps } from './ChatMessage';
 import { auth } from '@/lib/firebase';
 
@@ -21,49 +23,9 @@ const ChatInterface: React.FC = () => {
     }
   ]);
   const [isTyping, setIsTyping] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Fetch chat history on component mount
-  useEffect(() => {
-    const fetchChatHistory = async () => {
-      try {
-        const currentUser = auth.currentUser;
-        if (!currentUser) return;
-
-        const token = await currentUser.getIdToken();
-        const response = await fetch('http://localhost:8000/api/v1/chat/messages', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          interface BackendMessage {
-            id: string;
-            user_id: string;
-            message: string;
-            is_bot: boolean;
-            timestamp: string;
-          }
-          
-          const formattedMessages: ChatMessageProps[] = data.map((msg: BackendMessage) => ({
-            message: msg.message,
-            type: msg.is_bot ? 'bot' : 'user',
-            timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }));
-
-          if (formattedMessages.length > 0) {
-            setMessages(formattedMessages);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching chat history:', error);
-      }
-    };
-
-    fetchChatHistory();
-  }, []);
+  const { toast } = useToast();
 
   // Auto scroll to bottom when messages update
   useEffect(() => {
@@ -87,43 +49,44 @@ const ChatInterface: React.FC = () => {
     setIsTyping(true);
     
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        throw new Error('User not authenticated');
-      }
-
-      const token = await currentUser.getIdToken();
-      const response = await fetch('http://localhost:8000/api/v1/chat/messages', {
+      const response = await fetch('http://localhost:8000/api/v1/chat/send', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ message: input })
+        body: JSON.stringify({ 
+          message: input,
+          conversation_id: conversationId
+        })
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const botMessage: ChatMessageProps = {
-          message: data.bot_message.message,
-          type: 'bot',
-          timestamp: new Date(data.bot_message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-        
-        setMessages(prev => [...prev, botMessage]);
-      } else {
-        // Handle error response
-        const botMessage: ChatMessageProps = {
-          message: "I'm sorry, I'm having trouble processing your request right now. Please try again later.",
-          type: 'bot',
-          timestamp: getCurrentTime()
-        };
-        
-        setMessages(prev => [...prev, botMessage]);
+      if (!response.ok) {
+        throw new Error(`Server responded with ${response.status}`);
       }
+
+      const data = await response.json();
+      
+      // Save conversation ID for future messages
+      if (data.conversation_id) {
+        setConversationId(data.conversation_id);
+      }
+      
+      const botMessage: ChatMessageProps = {
+        message: data.message,
+        type: 'bot',
+        timestamp: getCurrentTime()
+      };
+      
+      setMessages(prev => [...prev, botMessage]);
     } catch (error) {
       console.error('Error sending message:', error);
       // Show error message to user
+      toast({
+        title: "Connection Error",
+        description: "Failed to connect to the medical chat service. Please try again later.",
+        variant: "destructive"
+      });
+      
       const botMessage: ChatMessageProps = {
         message: "I'm sorry, there was an error connecting to the server. Please check your connection and try again.",
         type: 'bot',
