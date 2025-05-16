@@ -16,9 +16,12 @@ if ! command -v npm &> /dev/null; then
     exit 1
 fi
 
-# Start the backend server in the background
-echo "Starting backend server..."
+# Create the model directory if it doesn't exist
+mkdir -p backend/model
+
+# Set up backend
 cd backend
+echo "Setting up virtual environment..."
 # Create virtual environment if it doesn't exist
 if [ ! -d "venv" ]; then
     echo "Creating virtual environment..."
@@ -30,6 +33,14 @@ source venv/bin/activate
 # Install dependencies
 echo "Installing backend dependencies..."
 pip install -r requirements.txt
+
+# Check if we need to train the model
+if [ "$1" == "--train-model" ]; then
+    echo "Starting model training... This may take a long time depending on your hardware."
+    python train_model.py
+    echo "Model training completed."
+    exit 0
+fi
 
 # Start the backend server
 echo "Starting FastAPI server..."
@@ -48,3 +59,8 @@ npm run dev
 # When the frontend is stopped, also stop the backend
 echo "Stopping backend server..."
 kill $BACKEND_PID
+
+echo ""
+echo "==================================================================="
+echo "NOTE: To train the medical model, run: ./start_app.sh --train-model"
+echo "==================================================================="
