@@ -1,4 +1,4 @@
-
+import os
 import pickle
 import numpy as np
 import torch
@@ -11,38 +11,46 @@ logger = logging.getLogger(__name__)
 
 class MedicalModelInference:
     def __init__(self, model_path="model/medical_model.pt", 
-                 tokenizer_path="model/tokenizer.pickle",
+                 tokenizer_path="model/tokenizer.model",  # Match the path from training
                  answer_mapping_path="model/answer_mapping.pickle",
-                 max_sequence_length=500):
+                 max_sequence_length=512):  # Match the training sequence length
         self.max_sequence_length = max_sequence_length
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = None
         self.tokenizer = None
         self.answer_mapping = None
+        
+        # Ensure model directory exists
+        os.makedirs("model", exist_ok=True)
+        
         self.load_model(model_path, tokenizer_path, answer_mapping_path)
     
     def load_model(self, model_path, tokenizer_path, answer_mapping_path):
         """Load the trained model, tokenizer, and answer mapping"""
         try:
             logger.info(f"Loading model from {model_path}")
-            # First load tokenizer to get vocab size
-            with open(tokenizer_path, 'rb') as handle:
-                self.tokenizer = pickle.load(handle)
+            # Load SentencePiece tokenizer
+            from tokenizer import TextTokenizer
+            self.tokenizer = TextTokenizer(vocab_size=25000, max_sequence_length=self.max_sequence_length)
+            self.tokenizer.load(tokenizer_path)
             
             # Load answer mapping to get num_classes
             with open(answer_mapping_path, 'rb') as handle:
                 self.answer_mapping = pickle.load(handle)
             
+            # Load model checkpoint
+            checkpoint = torch.load(model_path, map_location=self.device)
+            
             # Initialize model with same architecture
             self.model = MedicalModel(
-                vocab_size=self.tokenizer.num_words,
-                embed_dim=100,
-                hidden_size=128,
+                vocab_size=25000,  # Match the reduced vocab size from training
+                embed_dim=256,     # Match the increased embedding dimension
+                hidden_size=256,   # Match the increased hidden size
                 num_classes=len(self.answer_mapping)
             ).to(self.device)
             
             # Load trained weights
-            self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+            self.model.load_state_dict(checkpoint['model_state_dict'])
             self.model.eval()  # Set to evaluation mode
             
             logger.info("Model, tokenizer, and answer mapping loaded successfully")
@@ -93,12 +101,21 @@ class MedicalModelInference:
             top_probs = [predictions[0][idx] for idx in top_indices]
             
             # Format the response
-            formatted_response = f"Based on your query: '{query}'\n\n"
-            
             if top_probs[0] < 0.3:
-                return "I'm not confident about the answer to this medical question. Please consult with a healthcare professional for accurate information."
+                return ("I apologize, but I'm not confident enough about the answer to your medical question. "
+                       "To ensure your safety and well-being, I recommend consulting with a qualified healthcare "
+                       "professional for accurate medical advice.")
             
-            formatted_response += f"The most likely answer is: {top_answers[0]}"
+            formatted_response = []
+            formatted_response.append(f"Based on my medical training, here's what I found:")
+            formatted_response.append(f"\nAnswer: {top_answers[0]}")
+            formatted_response.append(f"\nConfidence: {top_probs[0]*100:.1f}%")
+            
+            if top_probs[0] < 0.7:  # Add disclaimer for medium confidence
+                formatted_response.append("\nNote: While I've provided an answer based on my training, "
+                                       "please verify this information with a healthcare professional for your specific case.")
+            
+            return "\n".join(formatted_response)
             
             # Check if we want to include alternative answers
             if len(top_answers) > 1 and top_probs[1] > 0.2:
