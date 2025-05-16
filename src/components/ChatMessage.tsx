@@ -2,6 +2,7 @@
 import React from 'react';
 import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import ReactMarkdown from 'react-markdown';
 
 export type MessageType = 'bot' | 'user';
 
@@ -31,7 +32,23 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, type, timestamp }) =
           ? 'bg-medical-primary text-white' 
           : 'bg-gray-100 text-gray-800'
       )}>
-        <div className="whitespace-pre-wrap break-words">{message}</div>
+        <div className="whitespace-pre-wrap break-words">
+          {type === 'user' ? (
+            message
+          ) : (
+            <ReactMarkdown
+              components={{
+                strong: ({ node, ...props }) => <span className="font-bold text-medical-primary" {...props} />,
+                em: ({ node, ...props }) => <span className="italic" {...props} />,
+                ul: ({ node, ...props }) => <ul className="list-disc ml-4 my-2" {...props} />,
+                ol: ({ node, ...props }) => <ol className="list-decimal ml-4 my-2" {...props} />,
+                li: ({ node, ...props }) => <li className="my-1" {...props} />,
+              }}
+            >
+              {message}
+            </ReactMarkdown>
+          )}
+        </div>
         <div className={cn(
           "text-xs mt-1",
           type === 'user' ? 'text-medical-light' : 'text-gray-500'
