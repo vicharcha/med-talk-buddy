@@ -4,7 +4,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ChatInterface from '@/components/ChatInterface';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { InfoCircle } from 'lucide-react';
+import { Info } from 'lucide-react';
 
 const Chat = () => {
   const [showDisclaimer, setShowDisclaimer] = useState(true);
@@ -19,7 +19,7 @@ const Chat = () => {
           
           {showDisclaimer && (
             <Alert className="mb-6 max-w-4xl mx-auto">
-              <InfoCircle className="h-4 w-4" />
+              <Info className="h-4 w-4" />
               <AlertTitle>Medical AI Disclaimer</AlertTitle>
               <AlertDescription>
                 This AI assistant is trained on medical datasets to provide information, but it is not a substitute for professional medical advice. 

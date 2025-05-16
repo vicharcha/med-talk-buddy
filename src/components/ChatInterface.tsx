@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send, Loader2 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import ChatMessage, { ChatMessageProps } from './ChatMessage';
 import { auth } from '@/lib/firebase';
 
@@ -46,7 +46,7 @@ const ChatInterface: React.FC = () => {
             toast({
               title: "Model Not Loaded",
               description: "The medical model is not currently loaded. Some features may be limited.",
-              variant: "warning"
+              variant: "default"
             });
           }
         } else {
@@ -91,7 +91,8 @@ const ChatInterface: React.FC = () => {
         },
         body: JSON.stringify({ 
           message: input,
-          conversation_id: conversationId
+          conversation_id: conversationId,
+          mode: 'chat'
         })
       });
 
@@ -163,7 +164,7 @@ const ChatInterface: React.FC = () => {
           {modelStatus === 'unavailable' && (
             <div className="text-medical-light text-sm flex items-center">
               <span className="h-2 w-2 bg-red-400 rounded-full mr-2"></span>
-              Limited Mode
+              Using Gemini AI
             </div>
           )}
         </div>
@@ -197,7 +198,7 @@ const ChatInterface: React.FC = () => {
         <div className="flex gap-2">
           <Input
             placeholder={modelStatus === 'unavailable' 
-              ? "Backend connection issue - demo mode only" 
+              ? "Using Gemini AI for medical answers" 
               : "Type your symptoms or health question..."}
             value={input}
             onChange={(e) => setInput(e.target.value)}
