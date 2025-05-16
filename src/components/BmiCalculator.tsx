@@ -77,12 +77,12 @@ const BMI_CATEGORIES: BmiCategory[] = [
 
 const VALID_RANGES = {
   metric: {
-    height: { min: 50, max: 300, unit: 'cm' }, // cm
-    weight: { min: 20, max: 500, unit: 'kg' }  // kg
+    height: { min: 100, max: 250, unit: 'cm' }, // cm (realistic human height range)
+    weight: { min: 20, max: 300, unit: 'kg' }  // kg (realistic human weight range)
   },
   imperial: {
-    height: { min: 20, max: 118, unit: 'in' }, // inches
-    weight: { min: 44, max: 1100, unit: 'lbs' } // pounds
+    height: { min: 39, max: 98, unit: 'in' }, // inches (equivalent to ~100-250cm)
+    weight: { min: 44, max: 660, unit: 'lbs' } // pounds (equivalent to ~20-300kg)
   }
 };
 
@@ -94,6 +94,7 @@ const BmiCalculator: React.FC = () => {
   const [bmi, setBmi] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [category, setCategory] = useState<BmiCategory | null>(null);
+  const [conversionInfo, setConversionInfo] = useState<{ height: string; weight: string }>({ height: '', weight: '' });
 
   const validateInput = useCallback((value: string, type: 'height' | 'weight'): boolean => {
     const num = parseFloat(value);
@@ -107,7 +108,11 @@ const BmiCalculator: React.FC = () => {
     if (type === 'height') {
       const range = ranges.height;
       if (num < range.min || num > range.max) {
-        setError(`Height should be between ${range.min}${range.unit} and ${range.max}${range.unit}`);
+        if (isMetric) {
+          setError(`Height should be between ${range.min}${range.unit} (3ft 3in) and ${range.max}${range.unit} (8ft 2in). If you're entering a child's height, please consult a pediatrician for proper BMI assessment.`);
+        } else {
+          setError(`Height should be between ${Math.floor(range.min/12)}ft ${range.min%12}in and ${Math.floor(range.max/12)}ft ${range.max%12}in. If you're entering a child's height, please consult a pediatrician for proper BMI assessment.`);
+        }
         return false;
       }
       if (!isMetric && heightInches) {
@@ -122,13 +127,29 @@ const BmiCalculator: React.FC = () => {
     if (type === 'weight') {
       const range = ranges.weight;
       if (num < range.min || num > range.max) {
-        setError(`Weight should be between ${range.min}${range.unit} and ${range.max}${range.unit}`);
+        if (isMetric) {
+          setError(`Weight should be between ${range.min}${range.unit} (44 lbs) and ${range.max}${range.unit} (660 lbs). If you're entering a child's weight, please consult a pediatrician for proper BMI assessment.`);
+        } else {
+          setError(`Weight should be between ${range.min}${range.unit} (${Math.round(range.min * 0.453592)} kg) and ${range.max}${range.unit} (${Math.round(range.max * 0.453592)} kg). If you're entering a child's weight, please consult a pediatrician for proper BMI assessment.`);
+        }
+        return false;
+      }
+    }
+    
+    // Additional validation for realistic BMI range
+    if (type === 'weight' && height) {
+      const heightInMeters = isMetric ? parseFloat(height) / 100 : ((parseFloat(height) * 12 + (parseFloat(heightInches) || 0)) * 0.0254);
+      const weightInKg = isMetric ? num : (num * 0.453592);
+      const bmiValue = weightInKg / (heightInMeters * heightInMeters);
+      
+      if (bmiValue < 12 || bmiValue > 100) {
+        setError('The combination of height and weight would result in an unrealistic BMI. Please check your measurements.');
         return false;
       }
     }
     
     return true;
-  }, [isMetric, heightInches]);
+  }, [isMetric, heightInches, height]);
 
   const getBmiCategory = useCallback((bmiValue: number): BmiCategory | null => {
     if (bmiValue < 10 || bmiValue > 100) {
@@ -190,13 +211,59 @@ const BmiCalculator: React.FC = () => {
     }
   }, [height, weight, heightInches, isMetric, validateInput, getBmiCategory]);
 
+  const convertHeight = useCallback((value: string, fromMetric: boolean): string => {
+    const num = parseFloat(value);
+    if (isNaN(num) || num <= 0) return '';
+    
+    if (fromMetric) {
+      // Convert cm to feet and inches
+      const totalInches = num / 2.54;
+      const feet = Math.floor(totalInches / 12);
+      const inches = Math.round(totalInches % 12);
+      return `${feet}'${inches}" (${num} cm)`;
+    } else {
+      // Convert feet to cm
+      const inches = parseFloat(heightInches) || 0;
+      const totalInches = (num * 12) + inches;
+      const cm = Math.round(totalInches * 2.54);
+      return `${cm} cm (${num}'${inches}")`;
+    }
+  }, [heightInches]);
+
+  const convertWeight = useCallback((value: string, fromMetric: boolean): string => {
+    const num = parseFloat(value);
+    if (isNaN(num) || num <= 0) return '';
+    
+    if (fromMetric) {
+      // Convert kg to lbs
+      const lbs = Math.round(num * 2.20462 * 10) / 10;
+      return `${lbs} lbs (${num} kg)`;
+    } else {
+      // Convert lbs to kg
+      const kg = Math.round(num / 2.20462 * 10) / 10;
+      return `${kg} kg (${num} lbs)`;
+    }
+  }, []);
+
   const handleInputChange = useCallback((value: string, type: 'height' | 'weight') => {
     const setValue = type === 'height' ? setHeight : setWeight;
     setValue(value);
     setError(null);
     setBmi(null);
     setCategory(null);
-  }, []);
+
+    // Update conversion information
+    if (value) {
+      setConversionInfo(prev => ({
+        ...prev,
+        [type]: type === 'height' 
+          ? convertHeight(value, isMetric)
+          : convertWeight(value, isMetric)
+      }));
+    } else {
+      setConversionInfo(prev => ({ ...prev, [type]: '' }));
+    }
+  }, [isMetric, convertHeight, convertWeight]);
 
   const getHealthyWeightRange = useCallback((): string | null => {
     if (!height || (!isMetric && !heightInches)) return null;
@@ -240,12 +307,46 @@ const BmiCalculator: React.FC = () => {
                 checked={isMetric}
                 onCheckedChange={(checked) => {
                   setIsMetric(checked);
-                  setHeight('');
-                  setHeightInches('');
-                  setWeight('');
+                  // Convert existing values if they exist
+                  if (height) {
+                    const heightNum = parseFloat(height);
+                    if (!isNaN(heightNum)) {
+                      if (checked) {
+                        // Converting from imperial to metric
+                        const inches = parseFloat(heightInches) || 0;
+                        const totalInches = (heightNum * 12) + inches;
+                        setHeight((totalInches * 2.54).toFixed(1));
+                        setHeightInches('');
+                      } else {
+                        // Converting from metric to imperial
+                        const totalInches = heightNum / 2.54;
+                        setHeight(Math.floor(totalInches / 12).toString());
+                        setHeightInches((Math.round(totalInches % 12)).toString());
+                      }
+                    }
+                  }
+                  if (weight) {
+                    const weightNum = parseFloat(weight);
+                    if (!isNaN(weightNum)) {
+                      if (checked) {
+                        // Converting from lbs to kg
+                        setWeight((weightNum / 2.20462).toFixed(1));
+                      } else {
+                        // Converting from kg to lbs
+                        setWeight((weightNum * 2.20462).toFixed(1));
+                      }
+                    }
+                  }
                   setBmi(null);
                   setCategory(null);
                   setError(null);
+                  // Update conversion info
+                  if (height) {
+                    handleInputChange(height, 'height');
+                  }
+                  if (weight) {
+                    handleInputChange(weight, 'weight');
+                  }
                 }}
               />
               <Label>Metric</Label>
@@ -255,18 +356,28 @@ const BmiCalculator: React.FC = () => {
           <div className="space-y-2">
             <Label htmlFor="height">
               Height ({isMetric ? 'cm' : 'ft'})
+              {conversionInfo.height && (
+                <span className="ml-2 text-sm text-muted-foreground">
+                  ≈ {conversionInfo.height}
+                </span>
+              )}
             </Label>
             {isMetric ? (
-              <Input
-                id="height"
-                type="number"
-                placeholder="Enter height in centimeters"
-                value={height}
-                onChange={(e) => handleInputChange(e.target.value, 'height')}
-                min={VALID_RANGES.metric.height.min}
-                max={VALID_RANGES.metric.height.max}
-                step="0.1"
-              />
+              <div className="space-y-1">
+                <Input
+                  id="height"
+                  type="number"
+                  placeholder="Enter height in centimeters"
+                  value={height}
+                  onChange={(e) => handleInputChange(e.target.value, 'height')}
+                  min={VALID_RANGES.metric.height.min}
+                  max={VALID_RANGES.metric.height.max}
+                  step="0.1"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Common heights: 150cm (4'11") | 160cm (5'3") | 170cm (5'7") | 180cm (5'11") | 190cm (6'3")
+                </p>
+              </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 <Input
@@ -299,17 +410,32 @@ const BmiCalculator: React.FC = () => {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="weight">Weight ({isMetric ? 'kg' : 'lbs'})</Label>
-            <Input
-              id="weight"
-              type="number"
-              placeholder={`Enter weight in ${isMetric ? 'kilograms' : 'pounds'}`}
-              value={weight}
-              onChange={(e) => handleInputChange(e.target.value, 'weight')}
-              min={isMetric ? VALID_RANGES.metric.weight.min : VALID_RANGES.imperial.weight.min}
-              max={isMetric ? VALID_RANGES.metric.weight.max : VALID_RANGES.imperial.weight.max}
-              step="0.1"
-            />
+            <Label htmlFor="weight">
+              Weight ({isMetric ? 'kg' : 'lbs'})
+              {conversionInfo.weight && (
+                <span className="ml-2 text-sm text-muted-foreground">
+                  ≈ {conversionInfo.weight}
+                </span>
+              )}
+            </Label>
+            <div className="space-y-1">
+              <Input
+                id="weight"
+                type="number"
+                placeholder={`Enter weight in ${isMetric ? 'kilograms' : 'pounds'}`}
+                value={weight}
+                onChange={(e) => handleInputChange(e.target.value, 'weight')}
+                min={isMetric ? VALID_RANGES.metric.weight.min : VALID_RANGES.imperial.weight.min}
+                max={isMetric ? VALID_RANGES.metric.weight.max : VALID_RANGES.imperial.weight.max}
+                step="0.1"
+              />
+              <p className="text-xs text-muted-foreground">
+                {isMetric 
+                  ? "Common weights: 50kg (110lbs) | 60kg (132lbs) | 70kg (154lbs) | 80kg (176lbs) | 90kg (198lbs)"
+                  : "Common weights: 100lbs (45kg) | 125lbs (57kg) | 150lbs (68kg) | 175lbs (79kg) | 200lbs (91kg)"
+                }
+              </p>
+            </div>
           </div>
 
           {error && (
